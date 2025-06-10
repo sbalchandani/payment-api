@@ -1,12 +1,13 @@
 # Use a lightweight OpenJDK image
 FROM maven:3.8-jdk-11 AS build
 
-FROM openjdk:17-jdk-slim
-
-COPY pom.xml mvnw src ./
-
 # Set the working directory
 WORKDIR /app
+
+RUN mvn clean package
+
+# Use a lightweight OpenJDK image
+FROM openjdk:17-jdk-slim
 
 # Copy the built jar from the target directory
 COPY target/payment-api-*.jar app.jar
