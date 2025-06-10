@@ -29,15 +29,15 @@ jobs:
           aws-region: us-east-1
 
       - name: Terraform Init
-        working-directory: ./terraform
+        working-directory: ./src
         run: terraform init
 
       - name: Terraform Plan
-        working-directory: ./terraform
+        working-directory: ./src
         run: terraform plan
 
       - name: Terraform Apply
-        working-directory: ./terraform
+        working-directory: ./src
         run: terraform apply -auto-approve
         env:
           TF_VAR_aws_region: us-east-1
