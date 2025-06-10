@@ -1,4 +1,6 @@
 # Use a lightweight OpenJDK image
+FROM maven:3.8-jdk-11 AS build
+
 FROM openjdk:17-jdk-slim
 
 COPY pom.xml mvnw src ./
