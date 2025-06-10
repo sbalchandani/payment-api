@@ -3,7 +3,7 @@ FROM maven:3.8-jdk-11 AS build
 
 # Set the working directory
 WORKDIR /app
-COPY ./ /project
+COPY ./ /app
 
 RUN mvn clean package
 
