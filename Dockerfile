@@ -10,7 +10,7 @@ RUN mvn clean package
 FROM openjdk:17-jdk-slim
 
 # Copy the built jar from the target directory
-COPY target/payment-api-*.jar app.jar
+COPY /app/target/payment-api-*.jar app.jar
 
 # Expose the port your app runs on
 EXPOSE 8080
