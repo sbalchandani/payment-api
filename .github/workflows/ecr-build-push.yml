@@ -1,0 +1,133 @@
+name: Build and Push Docker Image to ECR
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    env:
+      AWS_REGION: us-east-1  # Change to your preferred region
+      ECR_REPOSITORY: payment-api
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Log in to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Create ECR repository if it doesn't exist
+        run: |
+          aws ecr describe-repositories --repository-names $ECR_REPOSITORY --region $AWS_REGION || \
+          aws ecr create-repository --repository-name $ECR_REPOSITORY --region $AWS_REGION
+
+      - name: Build the application
+        run: ./mvnw clean package -DskipTests
+
+      - name: Build Docker image
+        run: |
+          docker build -t $ECR_REPOSITORY:latest .
+          docker tag $ECR_REPOSITORY:latest ${{ steps.login-ecr.outputs.registry }}/${ECR_REPOSITORY}:latest
+
+      - name: Push Docker image to ECR
+        run: |
+          docker push ${{ steps.login-ecr.outputs.registry }}/${ECR_REPOSITORY}:latest
+
+      - name: Output image URI
+        run: echo "Image URI: ${{ steps.login-ecr.outputs.registry }}/${ECR_REPOSITORY}:latest"
+
+  deploy-to-ecs:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    env:
+      AWS_REGION: us-east-1
+      ECR_REPOSITORY: payment-api
+      CLUSTER_NAME: my-ecs-cluster
+      SERVICE_NAME: payment-api-service
+      TASK_FAMILY: payment-api-task
+      CONTAINER_NAME: payment-api-container
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Get image URI
+        id: image_uri
+        run: echo "IMAGE_URI=${{ steps.login-ecr.outputs.registry }}/${ECR_REPOSITORY}:latest" >> $GITHUB_ENV
+
+      - name: Register ECS Task Definition
+        id: register_task
+        run: |
+          cat > taskdef.json <<EOF
+          {
+            "family": "${TASK_FAMILY}",
+            "networkMode": "awsvpc",
+            "requiresCompatibilities": ["FARGATE"],
+            "cpu": "256",
+            "memory": "512",
+            "containerDefinitions": [
+              {
+                "name": "${CONTAINER_NAME}",
+                "image": "${IMAGE_URI}",
+                "essential": true,
+                "portMappings": [
+                  {
+                    "containerPort": 8080,
+                    "protocol": "tcp"
+                  }
+                ]
+              }
+            ]
+          }
+          EOF
+          aws ecs register-task-definition --cli-input-json file://taskdef.json
+
+      - name: Get latest task definition revision
+        id: taskdef
+        run: |
+          REVISION=$(aws ecs describe-task-definition --task-definition ${TASK_FAMILY} --query 'taskDefinition.revision' --output text)
+          echo "TASK_DEF_ARN=${TASK_FAMILY}:$REVISION" >> $GITHUB_ENV
+
+      - name: Create or update ECS service
+        run: |
+          set -e
+          SERVICE_EXISTS=$(aws ecs describe-services --cluster $CLUSTER_NAME --services $SERVICE_NAME --query 'services[0].status' --output text || echo "MISSING")
+          if [ "$SERVICE_EXISTS" = "ACTIVE" ]; then
+            aws ecs update-service --cluster $CLUSTER_NAME --service $SERVICE_NAME --task-definition $TASK_DEF_ARN
+          else
+            aws ecs create-service \
+              --cluster $CLUSTER_NAME \
+              --service-name $SERVICE_NAME \
+              --task-definition $TASK_DEF_ARN \
+              --desired-count 1 \
+              --launch-type FARGATE \
+              --network-configuration "awsvpcConfiguration={subnets=[subnet-0a884828387c7e150,subnet-0f473602d6688f207],securityGroups=[sg-048716d041145fbd7],assignPublicIp=ENABLED}"
+          fi
+        env:
+          TASK_DEF_ARN: ${{ env.TASK_DEF_ARN }}
+          CLUSTER_NAME: ${{ env.CLUSTER_NAME }}
+          SERVICE_NAME: ${{ env.SERVICE_NAME }}
+
+# NOTE: Replace subnet-xxxxxxx and sg-xxxxxxx with your actual subnet and security group IDs.
