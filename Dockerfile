@@ -3,6 +3,7 @@ FROM maven:3.8-jdk-11 AS build
 
 # Set the working directory
 WORKDIR /app
+COPY ./ /project
 
 RUN mvn clean package
 
@@ -10,7 +11,7 @@ RUN mvn clean package
 FROM openjdk:17-jdk-slim
 
 # Copy the built jar from the target directory
-COPY /app/target/*.jar app.jar
+COPY --from=build /app/target/*.jar app.jar
 
 # Expose the port your app runs on
 EXPOSE 8080
