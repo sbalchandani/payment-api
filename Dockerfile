@@ -1,6 +1,8 @@
 # Use a lightweight OpenJDK image
 FROM openjdk:17-jdk-slim
 
+COPY pom.xml mvnw src ./
+
 # Set the working directory
 WORKDIR /app
 

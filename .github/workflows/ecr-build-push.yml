@@ -40,6 +40,9 @@ jobs:
           aws ecr describe-repositories --repository-names $ECR_REPOSITORY --region $AWS_REGION || \
           aws ecr create-repository --repository-name $ECR_REPOSITORY --region $AWS_REGION
 
+      - name: Make mvnw executable
+        run: chmod +x ./mvnw
+
       - name: Build the application
         run: ./mvnw clean package -DskipTests
 
