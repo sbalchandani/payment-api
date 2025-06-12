@@ -11,6 +11,8 @@ jobs:
     env:
       AWS_REGION: us-east-1  # Change to your preferred region
       ECR_REPOSITORY: payment-api
+    outputs:
+      image_uri: ${{ steps.set_image_uri.outputs.image_uri }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -49,6 +51,10 @@ jobs:
         run: |
           docker push ${{ steps.login-ecr.outputs.registry }}/${ECR_REPOSITORY}:latest
 
+      - name: Set image URI output
+        id: set_image_uri
+        run: echo "image_uri=${{ steps.login-ecr.outputs.registry }}/${ECR_REPOSITORY}:latest" >> $GITHUB_OUTPUT
+
       - name: Output image URI
         run: |
           echo "Image URI: ${{ steps.login-ecr.outputs.registry }}/${ECR_REPOSITORY}:latest"
@@ -63,6 +69,7 @@ jobs:
       SERVICE_NAME: payment-api-service
       TASK_FAMILY: payment-api-task
       CONTAINER_NAME: payment-api-container
+      IMAGE_URI: ${{ needs.build-and-push.outputs.image_uri }}
     steps:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -70,10 +77,6 @@ jobs:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
-
-      - name: Get image URI
-        id: image_uri
-        run: echo "IMAGE_URI=${{ steps.login-ecr.outputs.registry }}/${ECR_REPOSITORY}:latest" >> $GITHUB_ENV
 
       - name: Register ECS Task Definition
         id: register_task
