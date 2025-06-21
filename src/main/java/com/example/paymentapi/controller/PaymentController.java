@@ -9,7 +9,7 @@ import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/payments")
-@CrossOrigin (origins = "*", allowedHeaders = "POST") // Allow all origins for CORS
+@CrossOrigin (origins = "*", methods = {RequestMethod.GET, RequestMethod.DELETE, RequestMethod.OPTIONS, RequestMethod.PATCH, RequestMethod.POST}, allowedHeaders = {"Content-Type","Access-Control-Allow-Origin"}) // Allow all origins for CORS
 public class PaymentController {
     @Autowired
     private PaymentRepository paymentRepository;
