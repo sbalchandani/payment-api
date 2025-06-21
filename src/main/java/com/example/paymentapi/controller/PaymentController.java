@@ -17,8 +17,6 @@ public class PaymentController {
     @PostMapping
     public ResponseEntity<Payment> submitPayment(@RequestBody Payment payment) {
         Payment savedPayment = paymentRepository.save(payment);
-        HttpHeaders headers = new HttpHeaders();
-        headers.add("Access-Control-Allow-Origin", "*");
-        return ResponseEntity.ok().headers(headers).body(savedPayment);
+        return ResponseEntity.ok(savedPayment);
     }
 }
