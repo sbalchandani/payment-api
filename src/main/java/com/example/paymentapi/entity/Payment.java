@@ -27,6 +27,10 @@ public class Payment {
     @Pattern(regexp = "\\d{3,4}", message = "CVV must be 3 or 4 digits")
     private String cvv;
 
+    @NotNull
+    @DecimalMin(value = "0.0", inclusive = false, message = "Amount must be greater than 0")
+    private Double amount;
+
     // Getters and setters
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
@@ -40,5 +44,6 @@ public class Payment {
     public void setExpiry(String expiry) { this.expiry = expiry; }
     public String getCvv() { return cvv; }
     public void setCvv(String cvv) { this.cvv = cvv; }
+    public Double getAmount() { return amount; }
+    public void setAmount(Double amount) { this.amount = amount; }
 }
-
